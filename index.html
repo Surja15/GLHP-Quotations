@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quotation Generator</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef0f2;color:#20242a;font-family:Arial,Helvetica,sans-serif}
+  .app{display:grid;grid-template-columns:440px 1fr;min-height:100vh}
+  .panel{background:#fff;border-right:1px solid #d9d9d9;padding:22px;overflow:auto}
+  h1{font-size:21px;margin:0 0 4px}
+  .sub{font-size:12px;color:#666;margin-bottom:18px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:#444;border-bottom:1px solid #e3e3e3;padding-bottom:6px;margin:22px 0 12px;display:flex;align-items:center;justify-content:space-between}
+  label{display:block;font-size:12px;font-weight:bold;margin:9px 0 4px}
+  input,textarea,select{width:100%;padding:8px;border:1px solid #bbb;border-radius:5px;font:inherit;font-size:13px;background:white}
+  input:focus,textarea:focus,select:focus{outline:2px solid #2f6fed;outline-offset:1px;border-color:#2f6fed}
+  textarea{min-height:60px;resize:vertical;font-family:Arial,Helvetica,sans-serif}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .roller{border:1px solid #ccc;border-radius:7px;padding:11px;margin-bottom:10px;background:#fafafa}
+  .roller-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:13px;font-weight:bold}
+  button{border:0;border-radius:5px;padding:9px 12px;cursor:pointer;font-weight:bold;font:inherit}
+  button:disabled{opacity:.6;cursor:default}
+  .add{background:#eee;width:100%;margin:5px 0 10px}
+  .add:hover{background:#e2e2e2}
+  .remove{background:#f2dede;color:#8a1f1f;padding:4px 8px;font-size:11px}
+  .actions{position:sticky;bottom:-22px;background:#fff;padding:14px 0 2px;border-top:1px solid #ddd;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .pdf{background:#20242a;color:#fff}.pdf:hover{background:#000}
+  .word{background:#2f6fed;color:#fff}.word:hover{background:#1f57cc}
+  .share-pdf{background:#fff;color:#20242a;border:1.5px solid #20242a}.share-pdf:hover{background:#f2f2f2}
+  .share-word{background:#fff;color:#2f6fed;border:1.5px solid #2f6fed}.share-word:hover{background:#eef3ff}
+  .actions-label{grid-column:1/-1;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999;margin-top:8px}
+  .hint{font-size:11px;color:#777;margin-top:4px}
+  .check{display:flex;align-items:center;gap:7px;font-size:12px;margin:8px 0;font-weight:normal}
+  .check input{width:auto}
+  .chips{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .chip{background:#eef1f7;border:1px solid #d3d9e6;border-radius:20px;padding:4px 11px;font-size:11px;cursor:pointer;font-weight:normal}
+  .chip:hover{background:#e0e6f4}
+  .collapsible{max-height:0;overflow:hidden;transition:max-height .2s ease}
+  .collapsible.open{max-height:300px}
+  .preview-wrap{padding:35px;overflow:auto}
+  .muted{color:#666}
+  @media(max-width:900px){.app{display:block}.panel{border-right:0}.preview-wrap{padding:10px}.paper{transform-origin:top left}}
+</style>
+</head>
+<body>
+<div class="app">
+<section class="panel">
+  <h1>Quotation Generator</h1>
+  <div class="sub">GLHP / GLRI / PRI — single-file app</div>
+
+  <h2>Company</h2>
+  <label>Quotation From</label>
+  <select id="company" onchange="onCompanyChange()">
+    <option value="glhp">Good Luck Hygienic Polymers</option>
+    <option value="glri">Good Luck Rubber Industries</option>
+    <option value="pri">Press Roll India</option>
+    <option value="custom">Custom Company</option>
+  </select>
+  <label>Company Name</label><input id="companyName" oninput="render()">
+  <label>Tagline <span class="muted">(optional, two lines max)</span></label><textarea id="tagline" style="min-height:40px" oninput="render()"></textarea>
+  <label>Address</label><textarea id="companyAddress" oninput="render()"></textarea>
+  <div class="row"><div><label>Phone</label><input id="phone" oninput="render()"></div><div><label>Email</label><input id="email" oninput="render()"></div></div>
+
+  <h2>Quotation</h2>
+  <div class="row"><div><label>Ref. No.</label><input id="refNo" oninput="render()"></div><div><label>Date</label><input id="date" type="date" oninput="onDateChange()"></div></div>
+
+  <h2>Recipient</h2>
+  <label>To</label><input id="recipient" placeholder="M/S Company Name" oninput="render()">
+  <label>Address</label><textarea id="recipientAddress" oninput="render()"></textarea>
+  <label>Email <span class="muted">(optional)</span></label><input id="recipientEmail" oninput="render()">
+  <label>Kind Attention <span class="muted">(optional)</span></label><input id="attention" placeholder="e.g. Sir / Mr. Name" oninput="render()">
+  <label>Subject</label><input id="subject" value="Quotation for Rubber Roller as per your measurements." oninput="render()">
+
+  <h2>Introduction</h2>
+  <label>Salutation</label>
+  <input id="salutation" value="Dear Sir," oninput="render()">
+  <div class="chips">
+    <span class="chip" onclick="setSalutation('Dear Sir,')">Dear Sir,</span>
+    <span class="chip" onclick="setSalutation('Dear Madam,')">Dear Madam,</span>
+    <span class="chip" onclick="setSalutation('Dear Sir/Madam,')">Dear Sir/Madam,</span>
+  </div>
+  <label>Opening line</label>
+  <textarea id="intro" oninput="render()">Thank you very much for your mail discussion for inviting rates of Your Rubber Roller.</textarea>
+
+  <h2>Rollers</h2>
+  <div id="rollers"></div>
+  <button class="add" onclick="addRoller()">+ Add Roller</button>
+  <label class="check"><input type="checkbox" id="showRates" checked onchange="render()"> Show rates in quotation</label>
+
+  <h2>Total &amp; Currency</h2>
+  <label class="check"><input type="checkbox" id="convert" onchange="onConvertToggle()"> Also show converted currency</label>
+  <div id="convertFields" class="collapsible">
+    <div class="row">
+      <div>
+        <label>Currency</label>
+        <select id="currencyPreset" onchange="onCurrencyPresetChange()">
+          <option value="NPR">NPR — Nepalese Rupee</option>
+          <option value="USD">USD — US Dollar</option>
+          <option value="BDT">BDT — Bangladeshi Taka</option>
+          <option value="LKR">LKR — Sri Lankan Rupee</option>
+          <option value="BTN">BTN — Bhutanese Ngultrum</option>
+          <option value="AED">AED — UAE Dirham</option>
+          <option value="GBP">GBP — British Pound</option>
+          <option value="EUR">EUR — Euro</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      <div><label>1 INR =</label><input id="exchange" type="number" step="any" value="1.60" oninput="render()"></div>
+    </div>
+    <div id="customCurrencyWrap" style="display:none">
+      <label>Currency Code</label><input id="currencyCustom" placeholder="e.g. SAR" oninput="render()">
+    </div>
+  </div>
+
+  <h2>Terms &amp; Conditions</h2>
+  <div id="terms"></div>
+  <button class="add" onclick="addTerm()">+ Add Term</button>
+
+  <h2>Closing</h2>
+  <textarea id="closing" oninput="render()">We will look forward to receive your orders and assure you of our best service and cooperation.</textarea>
+  <label>Signatory</label><input id="signatory" value="S.R. Sengupta" oninput="render()">
+
+  <div class="actions">
+    <button class="pdf" onclick="downloadPDF()">Generate PDF</button>
+    <button class="word" onclick="downloadWord()">Generate Word</button>
+    <div class="actions-label">Share directly (WhatsApp, Mail, etc.)</div>
+    <button class="share-pdf" id="sharePdfBtn" onclick="sharePDF()" style="grid-column:1/-1">Share as PDF</button>
+  </div>
+</section>
+
+<main class="preview-wrap"><div class="paper" id="preview"></div></main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ---------- shared letterhead CSS (used for both live preview and the exported file, so they always match) ----------
+const PAPER_CSS = `
+.paper{background:#fff;width:794px;min-height:1123px;margin:0 auto;padding:42px 50px;box-shadow:0 2px 15px #ccc;
+  font-family:Calibri,Candara,"Segoe UI",Arial,sans-serif;font-size:13px;line-height:1.35;color:#141414}
+.lh{display:grid;grid-template-columns:1fr 30px 1fr;column-gap:14px;align-items:stretch}
+.lh-left{grid-column:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:8px}
+.lh-name{font-family:Arial,Helvetica,sans-serif;font-weight:800;font-size:28px;letter-spacing:-.3px;line-height:1.05;color:#111;white-space:nowrap;overflow:hidden;width:100%}
+.lh-name.wrap{white-space:normal;overflow:visible}
+.lh-name.placeholder{color:#c7c7c7;font-weight:700}
+.lh-tag{text-transform:uppercase;font-weight:bold;font-size:11px;letter-spacing:.3px;line-height:1.5;margin-top:7px}
+.lh-diag{grid-column:2;background:#111;clip-path:polygon(72% 0,100% 0,28% 100%,0 100%)}
+.lh-right{grid-column:3;display:flex;flex-direction:column;justify-content:flex-end;text-align:left;border-top:3px solid #111;padding-top:7px}
+.no-letterhead .lh-right{border-top-color:#111}
+.lh-addr1{font-weight:bold;font-size:13px}
+.lh-addr-rest{text-transform:uppercase;font-weight:normal;font-size:12px;line-height:1.55;margin-top:3px;color:#222}
+.lh-rule{height:4px;background:#111;margin-top:8px}
+.lh-contact{display:flex;justify-content:space-between;align-items:baseline;margin-top:9px;font-size:12.5px}
+.lh-contact a{color:#1a4fd6}
+.lh-divider{height:7px;border-top:2px solid #111;border-bottom:1px solid #111;border-radius:7px;margin:9px 0 24px}
+.no-letterhead .lh-rule,.no-letterhead .lh-divider{background:#fff}
+.topline{display:flex;justify-content:space-between;margin-top:2px;font-size:13px}
+.to{margin-top:14px}
+.to .name{font-weight:bold;text-decoration:underline}
+.attention{font-weight:bold;margin-top:6px;padding-left:38%}
+.subject{margin:16px 0 14px}
+.body p{margin:0 0 11px}
+.body p.first{text-indent:26px}
+.roller-line{display:flex;justify-content:space-between;gap:18px;margin:7px 0;flex-wrap:wrap}
+.roller-line .size,.roller-line .rate{font-weight:bold;text-decoration:underline}
+.roller-line .plain{font-weight:normal}
+.total{text-align:right;font-weight:bold;font-size:14px;margin-top:14px;padding-top:8px;border-top:1px solid #999}
+.converted{text-align:right;font-size:12.5px}
+.terms-title{font-weight:bold;font-size:15px;margin-top:20px}
+.terms{margin:8px 0 0 0;padding:0}
+.term-main{display:flex;gap:8px;margin:5px 0}
+.term-main .term-num{min-width:18px;flex-shrink:0}
+.term-sub{margin:5px 0 5px 30px}
+.closing{margin-top:16px}
+.signature{margin-top:24px}
+.placeholder-empty{color:#b8b8b8;font-style:italic;font-weight:normal;text-decoration:none}
+`;
+document.head.insertAdjacentHTML("beforeend", `<style>${PAPER_CSS}</style>`);
+
+const companies={
+ glhp:{name:"Good Luck Hygienic Polymers",tag:"A Trusted House of World Class Rubber Rollers\nfor Printing & Industrial Rollers.",address:"49/3, T. N. Mukherjee Road\nP.O. Raghunathpur,\nDist: Hooghly 712247. (W.B.) INDIA.",phone:"9831008168",email:"goodluckhygienicpolymer@gmail.com",prefix:"GLHP"},
+ glri:{name:"Good Luck Rubber Industries",tag:"",address:"",phone:"",email:"",prefix:"GLRI"},
+ pri:{name:"Press Roll India",tag:"",address:"",phone:"",email:"",prefix:"PRI"},
+ custom:{name:"",tag:"",address:"",phone:"",email:"",prefix:""}
+};
+let rollers=[
+ {name:"Rubber Roller",length:"",breadth:"",rate:"",amount:"",special:false}
+];
+let terms=[
+"Payment: 80% advance and 20% on submission of Performa invoice.",
+"Inspection: at our works / site.",
+"Old Shaft or Spindle Repairing Charges Extra (Not Applicable for New Rollers)",
+"a) Out Side Bearing House Repairing Charges Rs.2600/- per side.",
+"b) Inside Bearing House and Shaft repairing charges Rs.6800/- per side.(Bearing Supplied By the Party.)",
+"Packaging, Delivery and forwarding charges extra.",
+"Taxes Extra: GST/IGST 18%.",
+"Delivery period: Approx 3-4 weeks.",
+"Validity: For one month from the date of submission.",
+"Transportation Charge and Govt. Duty extra."
+];
+
+function esc(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function nl2br(s){return esc(s).replace(/\n/g,"<br>")}
+function money(n){return "₹"+Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtDate(v){if(!v)return "";let [y,m,d]=v.split("-");return `${d}/${m}/${y}`}
+
+function fyRef(prefix,dateStr){
+ if(!prefix)return "";
+ const d=dateStr?new Date(dateStr+"T00:00:00"):new Date();
+ const y=d.getMonth()>=3?d.getFullYear():d.getFullYear()-1;
+ return `${prefix}/BS/${y}-${String((y+1)%100).padStart(2,"0")}`;
+}
+
+function onDateChange(){
+ const key=document.getElementById("company").value;
+ const prefix=companies[key]?.prefix||"";
+ if(prefix)document.getElementById("refNo").value=fyRef(prefix,document.getElementById("date").value);
+ render();
+}
+
+function onCompanyChange(){
+ const key=document.getElementById("company").value;
+ const c=companies[key];
+ const nameEl=document.getElementById("companyName");
+ const tagEl=document.getElementById("tagline");
+ const addrEl=document.getElementById("companyAddress");
+ const phoneEl=document.getElementById("phone");
+ const emailEl=document.getElementById("email");
+ nameEl.value=c.name;
+ tagEl.value=c.tag;
+ addrEl.value=c.address;
+ phoneEl.value=c.phone;
+ emailEl.value=c.email;
+ document.getElementById("refNo").value=fyRef(c.prefix,document.getElementById("date").value);
+ if(key==="custom"){
+   nameEl.placeholder="Enter company name";
+   addrEl.placeholder="Enter company address";
+ }
+ nameEl.focus();
+ render();
+}
+
+function setSalutation(v){document.getElementById("salutation").value=v;render()}
+
+function onConvertToggle(){
+ const on=document.getElementById("convert").checked;
+ document.getElementById("convertFields").classList.toggle("open",on);
+ render();
+}
+function onCurrencyPresetChange(){
+ const v=document.getElementById("currencyPreset").value;
+ document.getElementById("customCurrencyWrap").style.display=v==="custom"?"block":"none";
+ render();
+}
+function currentCurrency(){
+ const v=document.getElementById("currencyPreset").value;
+ return v==="custom"?(document.getElementById("currencyCustom").value||""):v;
+}
+
+function addRoller(){rollers.push({name:"",length:"",breadth:"",rate:"",amount:"",special:false});drawRollers();render()}
+function removeRoller(i){rollers.splice(i,1);if(!rollers.length)rollers.push({name:"",length:"",breadth:"",rate:"",amount:"",special:false});drawRollers();render()}
+function toggleSpecial(i,on){rollers[i].special=on;drawRollers();render()}
+
+function rollerAmount(r){
+ if(r.special){
+   const sqcm=((Number(r.length)||0)*(Number(r.breadth)||0))/100;
+   return sqcm*(Number(r.rate)||0);
+ }
+ return Number(r.amount)||0;
+}
+
+function drawRollers(){
+ const rollersDiv=document.getElementById("rollers");
+ rollersDiv.innerHTML=rollers.map((r,i)=>`
+ <div class="roller">
+  <div class="roller-head"><span>Roller ${i+1}</span><button class="remove" onclick="removeRoller(${i})">Remove</button></div>
+  <label>Roller Name</label><input value="${esc(r.name)}" placeholder="Rubber Roller" oninput="rollers[${i}].name=this.value;render()">
+  <label class="check"><input type="checkbox" ${r.special?"checked":""} onchange="toggleSpecial(${i},this.checked)"> Calculate from dimensions &amp; rate</label>
+  ${r.special?`
+    <div class="row">
+      <div><label>Length (mm)</label><input type="number" step="any" value="${r.length}" oninput="rollers[${i}].length=this.value;render()"></div>
+      <div><label>Breadth / Dia (mm)</label><input type="number" step="any" value="${r.breadth}" oninput="rollers[${i}].breadth=this.value;render()"></div>
+    </div>
+    <label>Rate (₹ per sq cm)</label><input type="number" step="any" value="${r.rate}" oninput="rollers[${i}].rate=this.value;render()">
+    <div class="hint">Amount = (Length × Breadth ÷ 100) × Rate — matches "Rs X per sq cm" wording on the letterhead.</div>
+  `:`
+    <label>Amount (INR)</label><input type="number" step="0.01" value="${r.amount}" placeholder="Enter amount in INR" oninput="rollers[${i}].amount=this.value;render()">
+    <div class="hint">Enter the quotation amount directly in INR.</div>
+  `}
+ </div>`).join("");
+}
+
+function addTerm(){terms.push("");drawTerms();render()}
+function drawTerms(){
+ document.getElementById("terms").innerHTML=terms.map((t,i)=>`
+ <div class="roller"><div class="row"><input value="${esc(t)}" oninput="terms[${i}]=this.value;render()"><button class="remove" onclick="terms.splice(${i},1);drawTerms();render()">Remove</button></div></div>`).join("");
+}
+
+function letterheadHTML(){
+ const companyName=document.getElementById("companyName").value;
+ const tagline=document.getElementById("tagline").value;
+ const address=document.getElementById("companyAddress").value;
+ const phone=document.getElementById("phone").value;
+ const email=document.getElementById("email").value;
+ const hasLetterhead=companyName||tagline||address;
+ return `
+ <div class="lh ${hasLetterhead?"":"no-letterhead"}">
+   <div class="lh-left">
+     <div id="lhName" class="${companyName?"lh-name":"lh-name placeholder"}">${companyName?esc(companyName):"Company Name"}</div>
+     ${tagline?`<div class="lh-tag">${nl2br(tagline)}</div>`:""}
+     <div class="lh-rule"></div>
+   </div>
+   <div class="lh-diag"></div>
+   <div class="lh-right">${address?
+     (()=>{const lines=address.split("\n");return `<div class="lh-addr1">${esc(lines[0])}</div>${lines.length>1?`<div class="lh-addr-rest">${lines.slice(1).map(esc).join("<br>")}</div>`:""}`})()
+     :`<div class="lh-addr-rest placeholder-empty">Company address</div>`}
+   </div>
+ </div>
+ <div class="lh-contact">
+   <span>${phone?`PHONE: ${esc(phone)} (Mob)`:""}</span>
+   <span>${email?`<strong>E-mail:</strong> <a href="mailto:${esc(email)}">${esc(email)}</a>`:""}</span>
+ </div>
+ <div class="lh-divider"></div>`;
+}
+
+function render(){
+ const total=rollers.reduce((s,r)=>s+rollerAmount(r),0);
+ const showRates=document.getElementById("showRates").checked;
+
+ let rows=rollers.map((r,i)=>{
+   const amount=rollerAmount(r);
+   if(!r.name&&!r.length&&!r.breadth&&!r.rate&&!r.amount)return "";
+ if(r.special){
+     const size=(r.length||"—")+"mm x "+(r.breadth||"—")+"mm";
+     const rateStr = showRates && r.rate !== "" 
+       ? `Rate: Rs ${esc(r.rate)} per sq cm = ${money(amount)}/-` 
+       : `Amount: ${money(amount)}`;
+     return `<div class="roller-line"><span class="size">Size: ${esc(size)} roller</span><span class="rate">${rateStr}</span></div>`;
+   }
+   return `<div class="roller-line"><span class="plain"><strong>${esc(r.name||"Rubber Roller")}</strong></span>${showRates?`<span class="plain">Amount: ${money(amount)}</span>`:""}</div>`;
+ }).join("");
+
+ let conv="";
+ if(document.getElementById("convert").checked){
+   const cur=currentCurrency();
+   const ex=Number(document.getElementById("exchange").value)||0;
+   if(cur)conv=`<div class="converted">Equivalent: ${esc(cur)} ${(total*ex).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`;
+ }
+
+ const recipient=document.getElementById("recipient").value;
+ const attention=document.getElementById("attention").value;
+
+ preview.innerHTML=`
+ ${letterheadHTML()}
+ <div class="topline"><span>Ref. No: ${esc(document.getElementById("refNo").value)}</span><span>Date: <strong>${esc(fmtDate(document.getElementById("date").value))}</strong></span></div>
+ <div class="to">
+   To<br>
+   ${recipient?`<span class="name">${esc(recipient)}</span>`:'<span class="placeholder-empty">M/S Recipient Name</span>'}<br>
+   ${nl2br(document.getElementById("recipientAddress").value)}
+   ${document.getElementById("recipientEmail").value?`<br>Email: ${esc(document.getElementById("recipientEmail").value)}`:""}
+ </div>
+ ${attention?`<div class="attention">Kind Attention ${esc(attention)}</div>`:""}
+ <div class="subject"><strong>Sub</strong>: ${esc(document.getElementById("subject").value)}</div>
+ <div class="body">
+   <p>${esc(document.getElementById("salutation").value)}</p>
+   <p class="first">${nl2br(document.getElementById("intro").value)}</p>
+   ${rows}
+ </div>
+ <div class="total">Total: ${money(total)} INR</div>${conv}
+ <div class="terms-title">General Terms &amp; Conditions Applicable for this Order :-</div>
+ <div class="terms">${(()=>{let n=0;return terms.filter(t=>t.trim()).map(t=>{
+   const trimmed=t.trim();
+   const isSub=/^[a-c]\)\s?/i.test(trimmed);
+   if(isSub)return `<div class="term-sub">${esc(t)}</div>`;
+   n++;
+   return `<div class="term-main"><span class="term-num">${n}.</span><span>${esc(t)}</span></div>`;
+ }).join("")})()}</div>
+ <div class="closing">${nl2br(document.getElementById("closing").value)}</div>
+ <div class="signature">Best regards,<br><br>From ${esc(document.getElementById("companyName").value)}<br>${esc(document.getElementById("signatory").value)}</div>`;
+ fitNameToWidth();
+}
+
+function fitNameToWidth(){
+ const el=document.getElementById("lhName");
+ if(!el)return;
+ el.classList.remove("wrap");
+ let size=28;
+ el.style.fontSize=size+"px";
+ while(el.scrollWidth>el.clientWidth && size>16){
+   size--;
+   el.style.fontSize=size+"px";
+ }
+ if(el.scrollWidth>el.clientWidth){
+   el.classList.add("wrap");
+   el.style.fontSize="20px";
+ }
+}
+
+function htmlForExport(){
+ return `<!doctype html><html><head><meta charset="utf-8"><style>body{background:white;margin:0}${PAPER_CSS}</style></head><body><div class="paper">${preview.innerHTML}</div></body></html>`;
+}
+// Builds a genuine OOXML .docx (a real zip package) that wraps our HTML letter in a
+// Word "altChunk" — the same mechanism Word itself uses to import HTML/MHTML content.
+// This is a real, valid .docx (unlike the old "HTML saved with a .doc extension" trick),
+// so Word opens it natively and the Web Share API doesn't flag it as a legacy risky format.
+async function generateDocxBlob(){
+ const html = htmlForExport();
+ const zip = new JSZip();
+ zip.file("[Content_Types].xml",
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="html" ContentType="text/html"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`);
+ zip.folder("_rels").file(".rels",
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+ const word = zip.folder("word");
+ word.file("document.xml",
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<w:body>
+<w:altChunk r:id="htmlChunk"/>
+<w:sectPr>
+<w:pgSz w:w="11906" w:h="16838"/>
+<w:pgMar w:top="1417" w:right="1417" w:bottom="1417" w:left="1417" w:header="708" w:footer="708" w:gutter="0"/>
+</w:sectPr>
+</w:body>
+</w:document>`);
+ word.folder("_rels").file("document.xml.rels",
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="htmlChunk" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="afchunk.html"/>
+</Relationships>`);
+ word.file("afchunk.html", html);
+ return await zip.generateAsync({type:"blob", mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+
+async function downloadWord(){
+ const blob = await generateDocxBlob();
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Quotation.docx";a.click();URL.revokeObjectURL(a.href);
+}
+function downloadPDF(){
+ const w=window.open("","_blank");
+ if(!w){alert("Please allow pop-ups for this site.");return}
+ w.document.write(htmlForExport()+`<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script>`);
+ w.document.close();
+}
+
+// ---------- Share as PDF / Share as Word (Web Share API, file sharing) ----------
+function quotationFileBase(){
+ const recipient=(document.getElementById("recipient").value||"Quotation").trim();
+ const ref=(document.getElementById("refNo").value||"").trim();
+ const safe=(recipient||"Quotation").replace(/[^\w\- ]+/g,"").trim().slice(0,40)||"Quotation";
+ return ref?`${safe} ${ref}`:safe;
+}
+
+async function generatePDFBlob(){
+ const { jsPDF } = window.jspdf;
+ const paperEl = document.getElementById("preview");
+ const canvas = await html2canvas(paperEl, {scale:2, backgroundColor:"#ffffff", useCORS:true});
+ const imgData = canvas.toDataURL("image/png");
+ const pdf = new jsPDF({unit:"pt", format:"a4"});
+ const pageWidth = pdf.internal.pageSize.getWidth();
+ const pageHeight = pdf.internal.pageSize.getHeight();
+ const imgWidth = pageWidth;
+ const imgHeight = (canvas.height * imgWidth) / canvas.width;
+ let heightLeft = imgHeight;
+ let position = 0;
+ pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+ heightLeft -= pageHeight;
+ while(heightLeft > 0){
+   position = heightLeft - imgHeight;
+   pdf.addPage();
+   pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+   heightLeft -= pageHeight;
+ }
+ return pdf.output("blob");
+}
+
+async function shareOrDownload(blob, filename, mime, btn, downloadNote){
+ const original = btn.textContent;
+ btn.disabled = true;
+ btn.textContent = "Preparing…";
+ try{
+   const file = new File([blob], filename, {type:mime});
+   if(navigator.canShare && navigator.canShare({files:[file]})){
+     await navigator.share({files:[file], title:filename});
+   } else {
+     const a=document.createElement("a");
+     a.href=URL.createObjectURL(blob);
+     a.download=filename;
+     a.click();
+     URL.revokeObjectURL(a.href);
+     alert(downloadNote);
+   }
+ } catch(err){
+   if(err && err.name!=="AbortError"){
+     alert("Couldn't open the share sheet, so the file was not sent: "+err.message);
+   }
+ } finally {
+   btn.disabled = false;
+   btn.textContent = original;
+ }
+}
+
+async function sharePDF(){
+ const btn=document.getElementById("sharePdfBtn");
+ const blob = await generatePDFBlob();
+ await shareOrDownload(blob, quotationFileBase()+".pdf", "application/pdf", btn,
+   "Your browser doesn't support direct sharing, so the PDF was downloaded instead — you can attach it to WhatsApp from there.");
+}
+
+document.getElementById("date").value=new Date().toISOString().slice(0,10);
+drawRollers();drawTerms();onCompanyChange();
+</script>
+</body>
+</html>
