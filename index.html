@@ -333,12 +333,16 @@ function render(){
    const amount=rollerAmount(r);
    if(!r.name&&!r.length&&!r.breadth&&!r.rate&&!r.amount)return "";
  if(r.special){
-     const size=(r.length||"—")+"mm x "+(r.breadth||"—")+"mm";
-     const rateStr = showRates && r.rate !== "" 
-       ? `Rate: Rs ${esc(r.rate)} per sq cm = ${money(amount)}/-` 
-       : `Amount: ${money(amount)}`;
-     return `<div class="roller-line"><span class="size">Size: ${esc(size)} roller</span><span class="rate">${rateStr}</span></div>`;
-   }
+    const size=(r.length||"—")+"mm x "+(r.breadth||"—")+"mm";
+    const rateStr = showRates && r.rate !== ""
+      ? `Rate: Rs ${esc(r.rate)} per sq cm = ${money(amount)}/-`
+      : `Amount: ${money(amount)}`;
+
+    return `<div class="roller-line">
+      <span class="plain"><strong>${esc(r.name||"Rubber Roller")}</strong> — Size: ${esc(size)}</span>
+      <span class="rate">${rateStr}</span>
+    </div>`;
+}
    return `<div class="roller-line"><span class="plain"><strong>${esc(r.name||"Rubber Roller")}</strong></span>${showRates?`<span class="plain">Amount: ${money(amount)}</span>`:""}</div>`;
  }).join("");
 
