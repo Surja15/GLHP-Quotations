@@ -146,7 +146,6 @@ button:disabled{opacity:.6;cursor:default}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // ---------- shared letterhead CSS (used for both live preview and the exported file, so they always match) ----------
@@ -581,176 +580,52 @@ word.folder("_rels").file("document.xml.rels",
 word.file("afchunk.html", html);
 return await zip.generateAsync({type:"blob", mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
 }
-async function downloadWord() {
-  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType } = docx;
+async function downloadWord(){
+const blob = await generateDocxBlob();
+const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Quotation.docx";a.click();URL.revokeObjectURL(a.href);
+}
 
-  const companyName = document.getElementById("companyName").value || "Company Name";
-  const tagline = document.getElementById("tagline").value;
-  const address = document.getElementById("companyAddress").value;
-  const phone = document.getElementById("phone").value;
-  const email = document.getElementById("email").value;
-  const recipient = document.getElementById("recipient").value;
-  const total = rollers.reduce((s, r) => s + rollerAmount(r), 0);
-  const showRates = document.getElementById("showRates").checked;
-
-  // Build Roller Rows for Native Table
-  const rollerRows = [
-    new TableRow({
-      children: [
-        new TableCell({
-          children: [new Paragraph({ children: [new TextRun({ text: "Description / Size", bold: true })] })],
-          width: { size: 70, type: WidthType.PERCENTAGE },
-          borders: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "999999" } }
-        }),
-        new TableCell({
-          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "Amount", bold: true })] })],
-          width: { size: 30, type: WidthType.PERCENTAGE },
-          borders: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "999999" } }
-        })
-      ]
-    })
-  ];
-
-  rollers.forEach(r => {
-    if (!r.name && !r.length && !r.breadth && !r.rate && !r.amount) return;
-    const amount = rollerAmount(r);
-    let desc = r.name || "Rubber Roller";
-    let amtText = showRates ? money(amount) : "";
-
-    if (r.special) {
-      const size = (r.length || "—") + "mm x " + (r.breadth || "—") + "mm";
-      desc += ` — Size: ${size}`;
-      if (showRates && r.rate !== "") amtText = `Rate: Rs ${r.rate}/sqcm = ${money(amount)}`;
-    }
-
-    rollerRows.push(
-      new TableRow({
-        children: [
-          new TableCell({
-            children: [new Paragraph({ children: [new TextRun(desc)] })],
-            borders: { none: true }
-          }),
-          new TableCell({
-            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(amtText)] })],
-            borders: { none: true }
-          })
-        ]
-      })
-    );
-  });
-
-  // Construct Document
-  const doc = new Document({
-    sections: [{
-      properties: {
-        page: {
-          margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } // 2cm margins
-        }
-      },
-      children: [
-        // Letterhead Table
-        new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          borders: {
-            top: { style: BorderStyle.NONE },
-            left: { style: BorderStyle.NONE },
-            right: { style: BorderStyle.NONE },
-            bottom: { style: BorderStyle.SINGLE, size: 12, color: "111111" }
-          },
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({
-                  children: [
-                    new Paragraph({ children: [new TextRun({ text: companyName, bold: true, size: 36, color: "111111" })] }),
-                    tagline ? new Paragraph({ children: [new TextRun({ text: tagline, size: 16, color: "444444" })] }) : new Paragraph({})
-                  ],
-                  width: { size: 50, type: WidthType.PERCENTAGE }
-                }),
-                new TableCell({
-                  children: [
-                    new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: address.replace(/\n/g, ", "), size: 18 })] })
-                  ],
-                  width: { size: 50, type: WidthType.PERCENTAGE }
-                })
-              ]
-            })
-          ]
-        }),
-
-        // Contact Bar
-        new Paragraph({
-          alignment: AlignmentType.RIGHT,
-          children: [
-            new TextRun({ text: phone ? `Phone: ${phone}  |  ` : "", size: 18 }),
-            new TextRun({ text: email ? `Email: ${email}` : "", size: 18 })
-          ]
-        }),
-        new Paragraph({ text: "" }), // Spacing
-
-        // Ref No & Date
-        new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          borders: { none: true },
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({ children: [new Paragraph({ children: [new TextRun(`Ref. No: ${document.getElementById("refNo").value}`)] })] }),
-                new TableCell({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `Date: ${fmtDate(document.getElementById("date").value)}`, bold: true })] })] })
-              ]
-            })
-          ]
-        }),
-
-        // Recipient
-        new Paragraph({ text: "" }),
-        new Paragraph({ children: [new TextRun("To,")] }),
-        new Paragraph({ children: [new TextRun({ text: recipient || "M/S Recipient Name", bold: true, underline: {} })] }),
-        new Paragraph({ children: [new TextRun(document.getElementById("recipientAddress").value)] }),
-        
-        // Subject & Salutation
-        new Paragraph({ text: "" }),
-        new Paragraph({ children: [new TextRun({ text: `Sub: ${document.getElementById("subject").value}`, bold: true })] }),
-        new Paragraph({ text: "" }),
-        new Paragraph({ children: [new TextRun(document.getElementById("salutation").value)] }),
-        new Paragraph({ children: [new TextRun(document.getElementById("intro").value)] }),
-        new Paragraph({ text: "" }),
-
-        // Rollers Table
-        new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          rows: rollerRows
-        }),
-
-        // Total
-        new Paragraph({
-          alignment: AlignmentType.RIGHT,
-          children: [new TextRun({ text: `Total: ${money(total)} INR`, bold: true, size: 24 })]
-        }),
-        new Paragraph({ text: "" }),
-
-        // Terms & Conditions
-        new Paragraph({ children: [new TextRun({ text: "Terms & Conditions:", bold: true })] }),
-        ...terms.filter(t => t.trim()).map((t, i) => new Paragraph({ children: [new TextRun(`${i + 1}. ${t}`)] })),
-        
-        // Signatory
-        new Paragraph({ text: "" }),
-        new Paragraph({ children: [new TextRun(document.getElementById("closing").value)] }),
-        new Paragraph({ text: "" }),
-        new Paragraph({ children: [new TextRun("Best regards,")] }),
-        new Paragraph({ children: [new TextRun({ text: `From ${companyName}`, bold: true })] }),
-        new Paragraph({ children: [new TextRun(document.getElementById("signatory").value)] })
-      ]
-    }]
-  });
-
-  // Generate and Download File
-  const blob = await Packer.toBlob(doc);
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${quotationFileBase()}.docx`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+function downloadPDF(){
+// Use a hidden iframe instead of window.open() so pop-up blockers can't interfere
+let iframe=document.getElementById("pdf_print_frame");
+if(!iframe){
+iframe=document.createElement("iframe");
+iframe.id="pdf_print_frame";
+iframe.style.position="fixed";
+iframe.style.right="0";
+iframe.style.bottom="0";
+iframe.style.width="0";
+iframe.style.height="0";
+iframe.style.border="0";
+document.body.appendChild(iframe);
+}
+const doc=iframe.contentWindow.document;
+doc.open();
+doc.write(`
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@page { size: A4 portrait; margin: 12mm 15mm; }
+body { background: #ffffff; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+${PAPER_CSS}
+.paper { width: 100% !important; min-height: auto !important; padding: 0 !important; box-shadow: none !important; }
+/* Prevent slicing table rows across page splits */
+.roller-line, .term-main, tr { break-inside: avoid; page-break-inside: avoid; }
+</style>
+</head>
+<body>
+<div class="paper" style="--fs:${paperFontSize}px">${preview.innerHTML}</div>
+</body>
+</html>
+`);
+doc.close();
+// Trigger print cleanly after styles load
+setTimeout(()=>{
+iframe.contentWindow.focus();
+iframe.contentWindow.print();
+},250);
 }
 
 // ---------- Share as PDF / Share as Word (Web Share API, file sharing) ----------
