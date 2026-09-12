@@ -460,7 +460,14 @@ iframe.contentWindow.print();
 // is why that route kept coming out blank even after removing the scrolled/centered wrapper.
 // dom-to-image instead serializes the DOM into an <svg><foreignObject> and lets the browser's
 // own rendering engine paint it (the same engine "Generate PDF" already uses successfully),
-// so we can now reuse the exact same preview markup instead of a parallel table-based build.
+// so we can reuse the exact same preview markup instead of a parallel table-based build.
+//
+// IMPORTANT: dom-to-image renders the captured node inside that isolated <svg><foreignObject>.
+// If the node passed to it carries "position: fixed" (as it did before), that positioning gets
+// re-applied *inside* the isolated context too, painting the content off at (-10000px, 0) there
+// as well — producing a technically valid but entirely blank PNG. The fix is to never put
+// position:fixed/absolute on the node being captured itself; instead push an off-screen WRAPPER
+// out of view and let the captured node sit inside it with normal (static) positioning.
 function quotationFileBase(){
 const recipient=(document.getElementById("recipient").value||"Quotation").trim();
 const ref=(document.getElementById("refNo").value||"").trim();
@@ -468,22 +475,40 @@ const safe=(recipient||"Quotation").replace(/[^\w\- ]+/g,"").trim().slice(0,40)|
 return ref?`${safe} ${ref}`:safe;
 }
 async function generatePDFBlob(){
-// Clone the exact same letter the live preview / Generate PDF renders, off-screen (not
-// display:none/visibility:hidden, which dom-to-image would skip), full-size and unscaled.
+// Off-screen, collapsed wrapper. This carries the fixed positioning / clipping — NOT the
+// node we actually rasterize — so dom-to-image never sees position:fixed on its target.
+const wrapper=document.createElement("div");
+wrapper.style.position="fixed";
+wrapper.style.left="0";
+wrapper.style.top="0";
+wrapper.style.width="0";
+wrapper.style.height="0";
+wrapper.style.overflow="hidden";
+document.body.appendChild(wrapper);
+
+// The actual captured node: plain static positioning, full size, unscaled.
 const clone=document.createElement("div");
 clone.className="paper";
-clone.style.position="fixed";
-clone.style.left="-10000px";
-clone.style.top="0";
+clone.style.position="static";
 clone.style.margin="0";
 clone.style.boxShadow="none";
 clone.style.setProperty("--fs",paperFontSize+"px");
 clone.innerHTML=document.getElementById("preview").innerHTML;
-document.body.appendChild(clone);
-// Let layout settle (fonts/grid) before rasterizing.
+wrapper.appendChild(clone);
+
+// Let layout and web fonts settle before rasterizing.
+if(document.fonts && document.fonts.ready){
+try{ await document.fonts.ready; }catch(e){}
+}
 await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
 try{
-const dataUrl = await domtoimage.toPng(clone, { bgcolor: "#ffffff", cacheBust: true });
+const dataUrl = await domtoimage.toPng(clone, {
+bgcolor: "#ffffff",
+cacheBust: true,
+width: clone.scrollWidth,
+height: clone.scrollHeight
+});
 const img = await new Promise((res, rej)=>{
 const im = new Image();
 im.onload = ()=>res(im);
@@ -508,7 +533,7 @@ heightLeft -= pageHeight;
 }
 return pdf.output("blob");
 } finally {
-document.body.removeChild(clone);
+document.body.removeChild(wrapper);
 }
 }
 async function shareOrDownload(blob, filename, mime, btn, downloadNote){
@@ -538,9 +563,13 @@ btn.textContent = original;
 }
 async function sharePDF(){
 const btn=document.getElementById("sharePdfBtn");
+try{
 const blob = await generatePDFBlob();
 await shareOrDownload(blob, quotationFileBase()+".pdf", "application/pdf", btn,
 "Your browser doesn't support direct sharing, so the PDF was downloaded instead — you can attach it to WhatsApp from there.");
+}catch(err){
+alert("Couldn't generate the PDF for sharing: "+err.message);
+}
 }
 
 document.getElementById("date").value=new Date().toISOString().slice(0,10);
