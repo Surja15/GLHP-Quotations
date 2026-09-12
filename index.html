@@ -456,6 +456,103 @@ iframe.contentWindow.print();
 }
 
 // ---------- Share as PDF (Web Share API, file sharing) ----------
+// html2canvas (used below) does not reliably render CSS Grid, clip-path, or CSS custom
+// properties (var(--fs,...)) — all three are used by the live .lh letterhead. The real
+// browser print engine handles them fine (that's why "Generate PDF" always worked), but
+// html2canvas was silently failing to paint them, producing a blank capture. So for the
+// share path only, we build the same letter using plain tables (no grid/flexbox/clip-path),
+// same approach used for the old Word export, which html2canvas paints correctly.
+function pdfLetterheadHTML(){
+const companyName=document.getElementById("companyName").value||"Company Name";
+const tagline=document.getElementById("tagline").value;
+const address=document.getElementById("companyAddress").value;
+const phone=document.getElementById("phone").value;
+const email=document.getElementById("email").value;
+const lines=address?address.split("\n"):[];
+const addr1=lines[0]||"";
+const addrRest=lines.slice(1).map(esc).join("<br>");
+return `
+<table width="100%" border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;table-layout:fixed;">
+<tr>
+<td width="48%" valign="bottom" style="padding-bottom:8px;">
+<div style="font-family:Arial,Helvetica,sans-serif;font-weight:800;font-size:28px;letter-spacing:-.3px;line-height:1.05;color:#111111;">${esc(companyName)}</div>
+${tagline?`<div style="text-transform:uppercase;font-weight:bold;font-size:11px;letter-spacing:.3px;line-height:1.5;margin-top:7px;">${nl2br(tagline)}</div>`:""}
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;"><tr><td height="4" style="background-color:#111111;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>
+</td>
+<td width="4%" valign="middle" align="center">
+<table width="8" cellpadding="0" cellspacing="0"><tr><td height="50" style="background-color:#111111;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>
+</td>
+<td width="48%" valign="bottom" style="padding-top:7px;border-top:3px solid #111111;">
+${addr1?`<div style="font-weight:bold;font-size:13px;">${esc(addr1)}</div>`:""}
+${addrRest?`<div style="text-transform:uppercase;font-size:12px;line-height:1.55;margin-top:3px;color:#222222;">${addrRest}</div>`:""}
+</td>
+</tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:9px;">
+<tr>
+<td style="font-size:12.5px;">${phone?`PHONE: ${esc(phone)} (Mob)`:"&nbsp;"}</td>
+<td align="right" style="font-size:12.5px;">${email?`<strong>E-mail:</strong> ${esc(email)}`:"&nbsp;"}</td>
+</tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:9px 0 24px 0;">
+<tr><td height="2" style="background-color:#111111;font-size:1px;line-height:1px;">&nbsp;</td></tr>
+<tr><td height="3" style="font-size:1px;line-height:1px;">&nbsp;</td></tr>
+<tr><td height="1" style="background-color:#111111;font-size:1px;line-height:1px;">&nbsp;</td></tr>
+</table>`;
+}
+function pdfBodyHTML(){
+const total=rollers.reduce((s,r)=>s+rollerAmount(r),0);
+const showRates=document.getElementById("showRates").checked;
+let rows=rollers.map(r=>{
+const amount=rollerAmount(r);
+if(!r.name&&!r.length&&!r.breadth&&!r.rate&&!r.amount)return "";
+if(r.special){
+const size=(r.length||"—")+"mm x "+(r.breadth||"—")+"mm";
+const rateStr = showRates && r.rate !== ""
+? `Rate: Rs ${esc(r.rate)} per sq cm = ${money(amount)}/-`
+: `Amount: ${money(amount)}`;
+return `<tr><td style="padding:4px 0">${esc(r.name||"Rubber Roller")} — Size: ${esc(size)}</td><td style="padding:4px 0;text-align:right;font-weight:bold;text-decoration:underline">${rateStr}</td></tr>`;
+}
+return `<tr><td style="padding:4px 0">${esc(r.name||"Rubber Roller")}</td><td style="padding:4px 0;text-align:right">${showRates?`Amount: ${money(amount)}`:"&nbsp;"}</td></tr>`;
+}).join("");
+let conv="";
+if(document.getElementById("convert").checked){
+const cur=currentCurrency();
+const ex=Number(document.getElementById("exchange").value)||0;
+if(cur)conv=`<div style="text-align:right;font-size:.96em">Equivalent: ${esc(cur)} ${(total*ex).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`;
+}
+const recipient=document.getElementById("recipient").value;
+const attention=document.getElementById("attention").value;
+const termsHTML=(()=>{let n=0;return terms.filter(t=>t.trim()).map(t=>{
+const trimmed=t.trim();
+const isSub=/^[a-c]\)\s?/i.test(trimmed);
+if(isSub)return `<div style="margin:5px 0 5px 30px">${esc(t)}</div>`;
+n++;
+return `<div style="margin:5px 0"><span style="display:inline-block;min-width:18px">${n}.</span><span>${esc(t)}</span></div>`;
+}).join("")})();
+return `
+<table width="100%" style="margin-top:2px"><tr>
+<td style="font-size:1em">Ref. No: ${esc(document.getElementById("refNo").value)}</td>
+<td style="font-size:1em;text-align:right">Date: <strong>${esc(fmtDate(document.getElementById("date").value))}</strong></td>
+</tr></table>
+<div style="margin-top:14px">
+To<br>
+${recipient?`<span style="font-weight:bold;text-decoration:underline">${esc(recipient)}</span>`:"M/S Recipient Name"}<br>
+${nl2br(document.getElementById("recipientAddress").value)}
+${document.getElementById("recipientEmail").value?`<br>Email: ${esc(document.getElementById("recipientEmail").value)}`:""}
+</div>
+${attention?`<div style="font-weight:bold;margin-top:6px;padding-left:38%">Kind Attention ${esc(attention)}</div>`:""}
+<div style="margin:16px 0 14px 0"><strong>Sub</strong>: ${esc(document.getElementById("subject").value)}</div>
+<p style="margin:0 0 11px 0">${esc(document.getElementById("salutation").value)}</p>
+<p style="margin:0 0 11px 0;text-indent:26px">${nl2br(document.getElementById("intro").value)}</p>
+<table width="100%" style="border-collapse:collapse">${rows}</table>
+<div style="text-align:right;font-weight:bold;font-size:1.08em;margin-top:14px;padding-top:8px;border-top:1px solid #999999">Total: ${money(total)} INR</div>
+${conv}
+<div style="font-weight:bold;font-size:1.15em;margin-top:20px">General Terms &amp; Conditions Applicable for this Order :-</div>
+<div style="margin:8px 0 0 0">${termsHTML}</div>
+<div style="margin-top:16px">${nl2br(document.getElementById("closing").value)}</div>
+<div style="margin-top:24px">Best regards,<br><br>From ${esc(document.getElementById("companyName").value)}<br>${esc(document.getElementById("signatory").value)}</div>`;
+}
 function quotationFileBase(){
 const recipient=(document.getElementById("recipient").value||"Quotation").trim();
 const ref=(document.getElementById("refNo").value||"").trim();
@@ -463,32 +560,29 @@ const safe=(recipient||"Quotation").replace(/[^\w\- ]+/g,"").trim().slice(0,40)|
 return ref?`${safe} ${ref}`:safe;
 }
 async function generatePDFBlob(){
-// IMPORTANT: don't hand html2canvas the live #preview element directly — it sits inside a
-// scrollable, padded container (.preview-wrap) and is itself centered with margin:auto and a
-// box-shadow. html2canvas captures based on layout/scroll position, and that combination was
-// producing a blank (or mis-cropped, multi-page) capture. Instead we clone just the letter
-// content into a plain, fixed-position, off-screen container with no scroll/centering/shadow
-// so what gets captured is exactly the A4 sheet, pixel for pixel — matching the "Generate PDF"
-// print path, which works because it renders in a clean iframe the same way.
+// Off-screen (not display:none/visibility:hidden — html2canvas skips those), plain white,
+// grid/clip-path-free container built from the two functions above.
 const clone=document.createElement("div");
-clone.className="paper";
 clone.style.position="fixed";
-clone.style.left="0";
+clone.style.left="-10000px";
 clone.style.top="0";
-clone.style.margin="0";
-clone.style.boxShadow="none";
-clone.style.zIndex="-1";
-clone.style.setProperty("--fs",paperFontSize+"px");
-clone.innerHTML=document.getElementById("preview").innerHTML;
+clone.style.width="714px";
+clone.style.background="#ffffff";
+clone.style.padding="0";
+clone.style.fontFamily="Calibri,Candara,'Segoe UI',Arial,sans-serif";
+clone.style.fontSize=paperFontSize+"px";
+clone.style.lineHeight="1.35";
+clone.style.color="#141414";
+clone.innerHTML = pdfLetterheadHTML() + pdfBodyHTML();
 document.body.appendChild(clone);
 try{
 const opt = {
 margin:       [10, 10, 10, 10],
 filename:     quotationFileBase() + ".pdf",
 image:        { type: "jpeg", quality: 0.98 },
-html2canvas:  { scale: 2, useCORS: true, letterRendering: true, scrollX: 0, scrollY: 0, windowWidth: clone.scrollWidth, windowHeight: clone.scrollHeight },
+html2canvas:  { scale: 2, useCORS: true, letterRendering: true, backgroundColor: "#ffffff" },
 jsPDF:        { unit: "mm", format: "a4", orientation: "portrait" },
-pagebreak:    { mode: ["avoid-all", "css", "legacy"] }
+pagebreak:    { mode: ["css", "legacy"] }
 };
 return await html2pdf().set(opt).from(clone).outputPdf("blob");
 } finally {
