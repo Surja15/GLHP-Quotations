@@ -161,7 +161,8 @@ font-family:Calibri,Candara,"Segoe UI",Arial,sans-serif;font-size:var(--fs,13px)
 .lh-addr1{font-weight:bold;font-size:13px}
 .lh-addr-rest{text-transform:uppercase;font-weight:normal;font-size:12px;line-height:1.55;margin-top:3px;color:#222}
 .lh-rule{height:4px;background:#111;margin-top:8px}
-.lh-contact{display:flex;justify-content:space-between;align-items:baseline;margin-top:9px;font-size:12.5px}
+.lh-contact{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;row-gap:4px;margin-top:9px;font-size:12.5px}
+.lh-contact span{min-width:0}
 .lh-contact a{color:#1a4fd6}
 .lh-divider{height:7px;border-top:2px solid #111;border-bottom:1px solid #111;border-radius:7px;margin:9px 0 24px}
 .no-letterhead .lh-rule,.no-letterhead .lh-divider{background:#fff}
@@ -504,10 +505,8 @@ await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
 try{
 const dataUrl = await domtoimage.toPng(clone, {
-bgcolor: "#ffffff",
-cacheBust: true,
-width: clone.scrollWidth,
-height: clone.scrollHeight
+  bgcolor: "#ffffff",
+  cacheBust: true
 });
 const img = await new Promise((res, rej)=>{
 const im = new Image();
