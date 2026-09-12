@@ -26,9 +26,7 @@ button:disabled{opacity:.6;cursor:default}
 .remove{background:#f2dede;color:#8a1f1f;padding:4px 8px;font-size:11px}
 .actions{position:sticky;bottom:-22px;background:#fff;padding:14px 0 2px;border-top:1px solid #ddd;display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .pdf{background:#20242a;color:#fff}.pdf:hover{background:#000}
-.word{background:#2f6fed;color:#fff}.word:hover{background:#1f57cc}
 .share-pdf{background:#fff;color:#20242a;border:1.5px solid #20242a}.share-pdf:hover{background:#f2f2f2}
-.share-word{background:#fff;color:#2f6fed;border:1.5px solid #2f6fed}.share-word:hover{background:#eef3ff}
 .actions-label{grid-column:1/-1;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999;margin-top:8px}
 .hint{font-size:11px;color:#777;margin-top:4px}
 .check{display:flex;align-items:center;gap:7px;font-size:12px;margin:8px 0;font-weight:normal}
@@ -58,7 +56,7 @@ button:disabled{opacity:.6;cursor:default}
 <input type="range" id="fontSize" min="11" max="19" step="1" value="13" oninput="onFontSizeChange()">
 <span class="fontsize-val" id="fontSizeVal">13px</span>
 </div>
-<div class="hint">Scales the letter body text in the preview, PDF and Word export. Headings and the company name keep their own size.</div>
+<div class="hint">Scales the letter body text in the preview, PDF and share export. Headings and the company name keep their own size.</div>
 
 <h2>Company</h2>
 <label>Quotation From</label>
@@ -133,8 +131,7 @@ button:disabled{opacity:.6;cursor:default}
 <label>Signatory</label><input id="signatory" value="S.R. Sengupta" oninput="render()">
 
 <div class="actions">
-<button class="pdf" onclick="downloadPDF()">Generate PDF</button>
-<button class="word" onclick="downloadWord()">Generate Word</button>
+<button class="pdf" onclick="downloadPDF()" style="grid-column:1/-1">Generate PDF</button>
 <div class="actions-label">Share directly (WhatsApp, Mail, etc.)</div>
 <button class="share-pdf" id="sharePdfBtn" onclick="sharePDF()" style="grid-column:1/-1">Share as PDF</button>
 </div>
@@ -145,7 +142,6 @@ button:disabled{opacity:.6;cursor:default}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // ---------- shared letterhead CSS (used for both live preview and the exported file, so they always match) ----------
@@ -416,175 +412,6 @@ el.style.fontSize="20px";
 
 // ---------- Print / PDF export (real browser rendering — same CSS as preview, plus print-color-adjust so
 // background-drawn rules and the letterhead diagonal don't get silently dropped by the print engine) ----------
-function htmlForExport(){
-return `<!doctype html><html><head><meta charset="utf-8"><style>body{background:white;margin:0}${PAPER_CSS}.paper{font-size:${paperFontSize}px}</style></head><body><div class="paper">${preview.innerHTML}</div></body></html>`;
-}
-
-// ---------- Word-safe letterhead/body builders ----------
-// Word's HTML import (the engine behind altChunk) does not understand CSS Grid, Flexbox, CSS variables,
-// or clip-path — that's why the exported .docx used to lose its rules and the diagonal bar and collapse
-// to plain, misaligned text. These builders re-create the same letter using only tables, plain block
-// elements and fully inline styles (the standard "bulletproof HTML" approach used for Outlook/Word), plus
-// an inline SVG image in place of the clip-path diagonal, so Word renders it faithfully.
-// Pure-table letterhead builder: no CSS Grid/Flexbox/clip-path/SVG data-URIs, since Word's HTML
-// import engine (altChunk) doesn't reliably render those. Every rule and the diagonal divider are
-// drawn as fixed-width table cells with a solid background colour, which Word always imports faithfully.
-function wordLetterheadHTML(){
-const companyName=document.getElementById("companyName").value||"Company Name";
-const tagline=document.getElementById("tagline").value;
-const address=document.getElementById("companyAddress").value;
-const phone=document.getElementById("phone").value;
-const email=document.getElementById("email").value;
-const lines=address?address.split("\n"):[];
-const addr1=lines[0]||"";
-const addrRest=lines.slice(1).map(esc).join("<br>");
-return `
-<!-- Fixed-width table prevents Word auto-fit distortion -->
-<table width="100%" border="0" cellpadding="0" cellspacing="0" style="width:100%; border-collapse:collapse; table-layout:fixed;">
-<tr>
-<td width="300" valign="bottom" style="width:300px; padding-bottom:8px;">
-<div style="font-family:Arial,Helvetica,sans-serif; font-weight:bold; font-size:24pt; color:#111111; line-height:100%;">${esc(companyName)}</div>
-${tagline?`<div style="text-transform:uppercase; font-weight:bold; font-size:8pt; line-height:12pt; margin-top:6px;">${nl2br(tagline)}</div>`:""}
-<!-- Native Word-safe bottom border rule -->
-<table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top:8px;">
-<tr><td height="4" style="background-color:#111111; font-size:1px; line-height:1px;">&nbsp;</td></tr>
-</table>
-</td>
-<!-- Solid block divider replacing the untrusted SVG Data URI -->
-<td width="30" valign="middle" align="center" style="width:30px; padding:0 5px;">
-<table width="8" border="0" cellpadding="0" cellspacing="0">
-<tr><td height="50" style="background-color:#111111; font-size:1px; line-height:1px;">&nbsp;</td></tr>
-</table>
-</td>
-<td width="300" valign="bottom" style="width:300px; padding-top:7px; border-top:3px solid #111111;">
-${addr1?`<div style="font-weight:bold; font-size:10pt;">${esc(addr1)}</div>`:""}
-${addrRest?`<div style="text-transform:uppercase; font-size:9pt; line-height:13pt; margin-top:3px; color:#222222;">${addrRest}</div>`:""}
-</td>
-</tr>
-</table>
-
-<!-- Contact Bar -->
-<table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top:10px;">
-<tr>
-<td style="font-size:9.5pt;">${phone?`<b>PHONE:</b> ${esc(phone)} (Mob)`:"&nbsp;"}</td>
-<td align="right" style="font-size:9.5pt;">${email?`<b>E-mail:</b> ${esc(email)}`:"&nbsp;"}</td>
-</tr>
-</table>
-
-<!-- Double Horizontal Divider -->
-<table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:8px 0 18px 0;">
-<tr><td height="2" style="background-color:#111111; font-size:1px; line-height:1px;">&nbsp;</td></tr>
-<tr><td height="2" style="font-size:1px; line-height:1px;">&nbsp;</td></tr>
-<tr><td height="1" style="background-color:#111111; font-size:1px; line-height:1px;">&nbsp;</td></tr>
-</table>`;
-}
-function wordBodyHTML(){
-const total=rollers.reduce((s,r)=>s+rollerAmount(r),0);
-const showRates=document.getElementById("showRates").checked;
-let rows=rollers.map(r=>{
-const amount=rollerAmount(r);
-if(!r.name&&!r.length&&!r.breadth&&!r.rate&&!r.amount)return "";
-if(r.special){
-const size=(r.length||"—")+"mm x "+(r.breadth||"—")+"mm";
-const rateStr = showRates && r.rate !== ""
-? `Rate: Rs ${esc(r.rate)} per sq cm = ${money(amount)}/-`
-: `Amount: ${money(amount)}`;
-return `<tr><td style="padding:4px 0"><strong>${esc(r.name||"Rubber Roller")}</strong> — Size: ${esc(size)}</td><td style="padding:4px 0;text-align:right;font-weight:bold;text-decoration:underline">${rateStr}</td></tr>`;
-}
-return `<tr><td style="padding:4px 0"><strong>${esc(r.name||"Rubber Roller")}</strong></td><td style="padding:4px 0;text-align:right">${showRates?`Amount: ${money(amount)}`:"&nbsp;"}</td></tr>`;
-}).join("");
-let conv="";
-if(document.getElementById("convert").checked){
-const cur=currentCurrency();
-const ex=Number(document.getElementById("exchange").value)||0;
-if(cur)conv=`<div style="text-align:right;font-size:.96em">Equivalent: ${esc(cur)} ${(total*ex).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`;
-}
-const recipient=document.getElementById("recipient").value;
-const attention=document.getElementById("attention").value;
-const termsHTML=(()=>{let n=0;return terms.filter(t=>t.trim()).map(t=>{
-const trimmed=t.trim();
-const isSub=/^[a-c]\)\s?/i.test(trimmed);
-if(isSub)return `<div style="margin:5px 0 5px 30px">${esc(t)}</div>`;
-n++;
-return `<div style="margin:5px 0"><span style="display:inline-block;min-width:18px">${n}.</span><span>${esc(t)}</span></div>`;
-}).join("")})();
-return `
-<table width="100%" style="margin-top:2px"><tr>
-<td style="font-size:1em">Ref. No: ${esc(document.getElementById("refNo").value)}</td>
-<td style="font-size:1em;text-align:right">Date: <strong>${esc(fmtDate(document.getElementById("date").value))}</strong></td>
-</tr></table>
-<div style="margin-top:14px">
-To<br>
-${recipient?`<span style="font-weight:bold;text-decoration:underline">${esc(recipient)}</span>`:"M/S Recipient Name"}<br>
-${nl2br(document.getElementById("recipientAddress").value)}
-${document.getElementById("recipientEmail").value?`<br>Email: ${esc(document.getElementById("recipientEmail").value)}`:""}
-</div>
-${attention?`<div style="font-weight:bold;margin-top:6px;padding-left:38%">Kind Attention ${esc(attention)}</div>`:""}
-<div style="margin:16px 0 14px 0"><strong>Sub</strong>: ${esc(document.getElementById("subject").value)}</div>
-<p style="margin:0 0 11px 0">${esc(document.getElementById("salutation").value)}</p>
-<p style="margin:0 0 11px 0;text-indent:26px">${nl2br(document.getElementById("intro").value)}</p>
-<table width="100%" style="border-collapse:collapse">${rows}</table>
-<div style="text-align:right;font-weight:bold;font-size:1.08em;margin-top:14px;padding-top:8px;border-top:1px solid #999999">Total: ${money(total)} INR</div>
-${conv}
-<div style="font-weight:bold;font-size:1.15em;margin-top:20px">General Terms &amp; Conditions Applicable for this Order :-</div>
-<div style="margin:8px 0 0 0">${termsHTML}</div>
-<div style="margin-top:16px">${nl2br(document.getElementById("closing").value)}</div>
-<div style="margin-top:24px">Best regards,<br><br>From ${esc(document.getElementById("companyName").value)}<br>${esc(document.getElementById("signatory").value)}</div>`;
-}
-function htmlForWordExport(){
-const fs=paperFontSize;
-return `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#ffffff;margin:0}table{border-collapse:collapse}</style></head><body>
-<div style="font-family:Calibri,Candara,'Segoe UI',Arial,sans-serif;font-size:${fs}px;line-height:1.35;color:#141414;width:100%;max-width:714px;margin:0 auto">
-${wordLetterheadHTML()}
-${wordBodyHTML()}
-</div>
-</body></html>`;
-}
-
-// Builds a genuine OOXML .docx (a real zip package) that wraps our Word-safe HTML letter in a
-// Word "altChunk" — the same mechanism Word itself uses to import HTML/MHTML content.
-// This is a real, valid .docx (unlike the old "HTML saved with a .doc extension" trick),
-// so Word opens it natively and the Web Share API doesn't flag it as a legacy risky format.
-async function generateDocxBlob(){
-const html = htmlForWordExport();
-const zip = new JSZip();
-zip.file("[Content_Types].xml",
-`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-<Default Extension="html" ContentType="text/html"/>
-<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-</Types>`);
-zip.folder("_rels").file(".rels",
-`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>`);
-const word = zip.folder("word");
-word.file("document.xml",
-`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<w:body>
-<w:altChunk r:id="htmlChunk"/>
-<w:sectPr>
-<w:pgSz w:w="11906" w:h="16838"/>
-<w:pgMar w:top="1417" w:right="1417" w:bottom="1417" w:left="1417" w:header="708" w:footer="708" w:gutter="0"/>
-</w:sectPr>
-</w:body>
-</w:document>`);
-word.folder("_rels").file("document.xml.rels",
-`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="htmlChunk" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="afchunk.html"/>
-</Relationships>`);
-word.file("afchunk.html", html);
-return await zip.generateAsync({type:"blob", mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
-}
-async function downloadWord(){
-const blob = await generateDocxBlob();
-const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Quotation.docx";a.click();URL.revokeObjectURL(a.href);
-}
-
 function downloadPDF(){
 // Use a hidden iframe instead of window.open() so pop-up blockers can't interfere
 let iframe=document.getElementById("pdf_print_frame");
@@ -628,7 +455,7 @@ iframe.contentWindow.print();
 },250);
 }
 
-// ---------- Share as PDF / Share as Word (Web Share API, file sharing) ----------
+// ---------- Share as PDF (Web Share API, file sharing) ----------
 function quotationFileBase(){
 const recipient=(document.getElementById("recipient").value||"Quotation").trim();
 const ref=(document.getElementById("refNo").value||"").trim();
@@ -636,17 +463,37 @@ const safe=(recipient||"Quotation").replace(/[^\w\- ]+/g,"").trim().slice(0,40)|
 return ref?`${safe} ${ref}`:safe;
 }
 async function generatePDFBlob(){
-const paperEl = document.getElementById("preview");
+// IMPORTANT: don't hand html2canvas the live #preview element directly — it sits inside a
+// scrollable, padded container (.preview-wrap) and is itself centered with margin:auto and a
+// box-shadow. html2canvas captures based on layout/scroll position, and that combination was
+// producing a blank (or mis-cropped, multi-page) capture. Instead we clone just the letter
+// content into a plain, fixed-position, off-screen container with no scroll/centering/shadow
+// so what gets captured is exactly the A4 sheet, pixel for pixel — matching the "Generate PDF"
+// print path, which works because it renders in a clean iframe the same way.
+const clone=document.createElement("div");
+clone.className="paper";
+clone.style.position="fixed";
+clone.style.left="0";
+clone.style.top="0";
+clone.style.margin="0";
+clone.style.boxShadow="none";
+clone.style.zIndex="-1";
+clone.style.setProperty("--fs",paperFontSize+"px");
+clone.innerHTML=document.getElementById("preview").innerHTML;
+document.body.appendChild(clone);
+try{
 const opt = {
 margin:       [10, 10, 10, 10],
 filename:     quotationFileBase() + ".pdf",
 image:        { type: "jpeg", quality: 0.98 },
-html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+html2canvas:  { scale: 2, useCORS: true, letterRendering: true, scrollX: 0, scrollY: 0, windowWidth: clone.scrollWidth, windowHeight: clone.scrollHeight },
 jsPDF:        { unit: "mm", format: "a4", orientation: "portrait" },
 pagebreak:    { mode: ["avoid-all", "css", "legacy"] }
 };
-// Generates a PDF blob with page-break defense so text/rows don't get sliced across pages
-return await html2pdf().set(opt).from(paperEl).outputPdf("blob");
+return await html2pdf().set(opt).from(clone).outputPdf("blob");
+} finally {
+document.body.removeChild(clone);
+}
 }
 async function shareOrDownload(blob, filename, mime, btn, downloadNote){
 const original = btn.textContent;
